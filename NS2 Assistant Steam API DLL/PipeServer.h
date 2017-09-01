@@ -15,14 +15,3 @@ public:
 	bool Running() const { return _Running; }
 	void Stop();
 };
-
-struct ServerChangePacket : GameServerChangeRequested_t
-{
-	void serialize(char * dat) {
-		memcpy(dat, this, sizeof(ServerChangePacket));
-	}
-
-	void deserialize(const char * dat) {
-		memcpy(this, dat, sizeof(ServerChangePacket));
-	}
-};

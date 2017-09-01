@@ -15,7 +15,7 @@ CCallbackBase* ServerChangeRequestedCallback;
 
 void SocketDataReceived(GameServerChangeRequested_t& data)
 {
-	if(ServerChangeRequestedCallback != NULL)
+	if(ServerChangeRequestedCallback != nullptr)
 		ServerChangeRequestedCallback->Run(&data);
 }
 
@@ -24,10 +24,10 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpvReserved)
 	if(dwReason == DLL_PROCESS_ATTACH)
 	{
 		SteamApiDll = LoadLibraryA("steam_api_original.dll");
-		if (SteamApiDll == NULL)
+		if (SteamApiDll == nullptr)
 			return 1;
-		NativeRegisterCallback = (SteamAPI_RegisterCallbackFn)GetProcAddress(SteamApiDll, "SteamAPI_RegisterCallback");
-		if (NativeRegisterCallback == NULL)
+		NativeRegisterCallback = reinterpret_cast<SteamAPI_RegisterCallbackFn>(GetProcAddress(SteamApiDll, "SteamAPI_RegisterCallback"));
+		if (NativeRegisterCallback == nullptr)
 			return 1;
 
 		Pipe = std::make_shared<PipeServer>(LISTEN_PIPE, SocketDataReceived);
