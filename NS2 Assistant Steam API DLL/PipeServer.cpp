@@ -2,8 +2,8 @@
 
 #include "PipeServer.h"
 
-PipeServer::PipeServer(std::string pipePath, void(&DataReceivedHandler)(GameServerChangeRequested_t&))
-	: DataReceivedHandler(DataReceivedHandler)
+PipeServer::PipeServer(std::string pipePath, PacketReceivedHandler_t PipeReceivedHandler)
+	: PacketReceivedHandler(PipeReceivedHandler)
 {
 	this->PipeHandle = CreateNamedPipeA(pipePath.c_str(), PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1, 0, 128, 0, nullptr);
 
@@ -39,10 +39,8 @@ DWORD WINAPI PipeServer::MainLoop(LPVOID lParam)
 {
 	PipeServer* Server = static_cast<PipeServer*>(lParam);
 
-	const int recvbuflen = sizeof(GameServerChangeRequested_t);
-	char recvbuf[recvbuflen];
-
-	GameServerChangeRequested_t packet;
+	const int recvBufLen = 512;
+	char recvbuf[recvBufLen];
 
 	while (Server->_Running)
 	{
@@ -53,14 +51,15 @@ DWORD WINAPI PipeServer::MainLoop(LPVOID lParam)
 			const bool fSuccess = ReadFile(
 				Server->PipeHandle,
 				recvbuf,
-				recvbuflen,
+				recvBufLen,
 				&cbBytesRead,
 				nullptr);
 
-			if (fSuccess && cbBytesRead == 128 && recvbuf[63] == 0x00 && recvbuf[127] == 0x00)
+			if (fSuccess)
 			{
-				packet.deserialize(recvbuf);
-				Server->DataReceivedHandler(packet);
+				std::unique_ptr<PipePacket> packet = PipePacket::Deserialize(recvbuf, cbBytesRead);
+				if(packet != nullptr)
+					Server->PacketReceivedHandler(packet);
 			}
 
 			DisconnectNamedPipe(Server->PipeHandle);

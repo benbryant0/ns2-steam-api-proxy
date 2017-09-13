@@ -1,16 +1,17 @@
 #pragma once
 
-#include "FriendsCommon.h"
+#include "PipePackets.h"
+
+typedef void(&PacketReceivedHandler_t)(std::unique_ptr<PipePacket>&);
 
 class PipeServer
 {
-private:
 	HANDLE PipeHandle;
 	static DWORD WINAPI MainLoop(LPVOID lParam);
 	bool _Running = false;
-	void(&DataReceivedHandler)(GameServerChangeRequested_t&);
+	PacketReceivedHandler_t PacketReceivedHandler;
 public:
-	PipeServer(std::string pipePath, void(&DataReceivedHandler)(GameServerChangeRequested_t&));
+	PipeServer(std::string pipePath, PacketReceivedHandler_t);
 	~PipeServer();
 	bool Running() const { return _Running; }
 	void Stop();
