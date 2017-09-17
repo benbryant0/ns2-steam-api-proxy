@@ -10,18 +10,56 @@
 
 std::unique_ptr<PipeServer> Pipe;
 HMODULE SteamApiDll;
-typedef void (*SteamAPI_RegisterCallbackFn)(CCallbackBase*, int);
-SteamAPI_RegisterCallbackFn RegisterCallback_Original;
 CCallbackBase* ServerChangeRequestedCallback;
 
+typedef void (*SteamAPI_RegisterCallbackFn)(CCallbackBase*, int);
+SteamAPI_RegisterCallbackFn RegisterCallback;
+
 typedef void(*SteamAPI_ActivateGameOverlayToWebPageFn)(void*, const char *);
-SteamAPI_ActivateGameOverlayToWebPageFn ActivateGameOverlayToWebPage_Original;
+SteamAPI_ActivateGameOverlayToWebPageFn ActivateGameOverlayToWebPage;
 
 typedef void*(*SteamFriendsFn)();
 SteamFriendsFn GetSteamFriends;
 
+bool LoadSteamApi()
+{
+	if (SteamApiDll != nullptr)
+		return true;
+
+	if ((SteamApiDll = LoadLibraryA("steam_api_original.dll")) == nullptr)
+	{
+		return false;
+	}
+
+	const auto tryLoad = []() {
+		RegisterCallback = reinterpret_cast<SteamAPI_RegisterCallbackFn>(GetProcAddress(SteamApiDll, "SteamAPI_RegisterCallback"));
+		if (RegisterCallback == nullptr)
+			return false;
+
+		ActivateGameOverlayToWebPage = reinterpret_cast<SteamAPI_ActivateGameOverlayToWebPageFn>(GetProcAddress(SteamApiDll, "SteamAPI_ISteamFriends_ActivateGameOverlayToWebPage"));
+		if (ActivateGameOverlayToWebPage == nullptr)
+			return false;
+
+		GetSteamFriends = reinterpret_cast<SteamFriendsFn>(GetProcAddress(SteamApiDll, "SteamFriends"));
+		if (GetSteamFriends == nullptr)
+			return false;
+	};
+
+	if (!tryLoad())
+	{
+		if (FreeLibrary(SteamApiDll) != 0)
+			SteamApiDll = nullptr;
+
+		return false;
+	}
+
+	return true;
+}
+
 void PipeDataReceived(std::unique_ptr<PipePacket>& packet)
 {
+	if (!LoadSteamApi()) return;
+
 	const auto type = packet->Type();
 	if(type == PipePacketType::ServerChangePacket && ServerChangeRequestedCallback != nullptr)
 	{
@@ -34,47 +72,31 @@ void PipeDataReceived(std::unique_ptr<PipePacket>& packet)
 	else if(type == PipePacketType::OpenOverlayUrlPacket)
 	{
 		const auto openOverlayPacket = dynamic_cast<OpenOverlayUrlPacket*>(packet.get());
-		ActivateGameOverlayToWebPage_Original(GetSteamFriends(), openOverlayPacket->Url);
+		ActivateGameOverlayToWebPage(GetSteamFriends(), openOverlayPacket->Url);
 	}
+}
+
+void SteamAPI_RegisterCallback_export(CCallbackBase* pCallback, int iCallback)
+{
+	if (!LoadSteamApi()) return;
+
+	RegisterCallback(pCallback, iCallback);
+
+	if (iCallback == 332)
+		ServerChangeRequestedCallback = pCallback;
 }
 
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpvReserved)
 {
-	if(dwReason == DLL_PROCESS_ATTACH)
+	if (dwReason == DLL_PROCESS_ATTACH)
 	{
-		SteamApiDll = LoadLibraryA("steam_api_original.dll");
-		if (SteamApiDll == nullptr)
-			return 1;
-
-		RegisterCallback_Original = reinterpret_cast<SteamAPI_RegisterCallbackFn>(GetProcAddress(SteamApiDll, "SteamAPI_RegisterCallback"));
-		if (RegisterCallback_Original == nullptr)
-			return 1;
-
-		ActivateGameOverlayToWebPage_Original = reinterpret_cast<SteamAPI_ActivateGameOverlayToWebPageFn>(GetProcAddress(SteamApiDll, "SteamAPI_ISteamFriends_ActivateGameOverlayToWebPage"));
-		if (ActivateGameOverlayToWebPage_Original == nullptr)
-			return 1;
-
-		GetSteamFriends = reinterpret_cast<SteamFriendsFn>(GetProcAddress(SteamApiDll, "SteamFriends"));
-		if (GetSteamFriends == nullptr)
-			return 1;
-
 		Pipe = std::make_unique<PipeServer>(LISTEN_PIPE, PipeDataReceived);
 	}
-	else if(dwReason == DLL_PROCESS_DETACH)
+	else if (dwReason == DLL_PROCESS_DETACH)
 	{
 		if (Pipe->Running())
 			Pipe->Stop();
-
-		FreeLibrary(SteamApiDll);
 	}
 
 	return 1;
-}
-
-STEAM_API void SteamAPI_RegisterCallback(CCallbackBase* pCallback, int iCallback)
-{
-	RegisterCallback_Original(pCallback, iCallback);
-
-	if (iCallback == 332)
-		ServerChangeRequestedCallback = pCallback;
 }

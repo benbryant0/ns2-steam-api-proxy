@@ -21,13 +21,13 @@
     <ClInclude Include="steam_api.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CCallback.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FriendsCommon.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="PipeServer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SteamTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PipePackets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -46,6 +46,8 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="steam_api.res" />
+    <Resource Include="steam_api.res">
+      <Filter>Resource Files</Filter>
+    </Resource>
   </ItemGroup>
 </Project>
