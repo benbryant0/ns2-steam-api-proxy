@@ -76,7 +76,7 @@ void PipeDataReceived(std::unique_ptr<PipePacket>& packet)
 	}
 }
 
-void SteamAPI_RegisterCallback_export(CCallbackBase* pCallback, int iCallback)
+STEAM_API void SteamAPI_RegisterCallback(CCallbackBase* pCallback, int iCallback)
 {
 	if (!LoadSteamApi()) return;
 
